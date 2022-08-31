@@ -1,0 +1,174 @@
+
+/**
+ * Gradle 사용 이유 :
+ * 진화된 빌드툴로 빌드, 테스트, 배포, 개발등을 자동화 할수있다.
+ * XML이 아닌 Groovy를 사용한다.
+ *
+ * 그래들 스크랩트 :
+ * 프로젝트와 작업으로 구분할 수 있다.
+ * 모든 그래들 빌드는 하나 이상의 프로젝트로 이루어진다.
+ * 각 프로젝트는 하나 이상의 작업으로 구성되어 있다.
+ */
+
+
+//gradle로 task 실행 시 사용되는 설정이다.
+//어플리케이션 빌드와는 별개의 설정이다.(repositories, dependencies를 따로 구현해야 한다.)
+buildscript {
+    ext {
+        //전역변수는 $전역변수로 사용할 수 있따.
+        springBootVersion = '2.3.7.RELEASE'
+        lombokVersion = '1.18.10'
+    }
+    /**
+     * 필요한 라이브러리를 다운로드할 저장소를 지정
+     * 공개저장소(jcenter)와 maven 저장소를 사용할 수 있다.
+     */
+    repositories {
+        mavenCentral()
+        jcenter()
+    }
+    dependencies {
+        /**
+         * compile 이 아닌 classpath 인 이유 :
+         * buildscript가 스크립트 안에서 바로 외부 라이브러리의 특정 메소드를 사용해야 하는 경우가 있는데, 해당 경우 이렇게 작성해야 한다.
+         */
+        classpath("org.springframework.boot:spring-boot-gradle-plugin:${springBootVersion}")
+    }
+}
+
+plugins {
+    id 'study.gradle.java-application-conventions'
+    id 'java-library'
+}
+
+java {
+    toolchain{
+        languageVersion = JavaLanguageVersion.of(11)
+    }
+}
+
+version = '1.2.1'
+
+dependencies {
+    implementation 'org.apache.commons:commons-text'
+    implementation project(':utilities')
+}
+
+application {
+    // Define the main class for the application.
+    mainClass = 'study.gradle.app.App'
+}
+
+repositories {
+    // 저장소 설정 (저장소 - 각종 프로그램들이 저장되는 위치. 이 저장소는 "어떤 저장소를 사용하는지"를 빌드 파일에 작성하여 설정할 수 있다.
+}
+
+//테스크는 준비된 액션을 순서대로 실행해 나가는 역할을 한다. (액션 - 처리의 실행 단위)
+task(테스크명){
+    println("테스크명 테스크 실행")
+
+    doFirst{
+        println("테스크명 테스크 doFirst 실행")
+    }
+
+    doLast{
+        println("테스크명 테스크 doLast 실행")
+    }
+}
+
+//테스크에 매개변수 전달
+//-P 다음에 변수명을 지정하고 그 뒤에 등호로 값을 지정한다.
+//ex) gradle msg -Pmax=10
+task(매개변수전달){
+    doLast{
+        def n = max.toInteger()
+        for(def i in 1..n){
+            println("no." + i)
+        }
+        println("end...")
+    }
+}
+
+//DefaultTask 상속 클래스
+class extendedTask extends DefaultTask{
+    void test1(){
+        println("test1 called.")
+    }
+
+    @TaskAction //테스크로 실행되었을 때 이 메소드가 호출된다.
+    void test2(){
+        println("test2 called.")
+    }
+}
+
+class Calc extends DefaultTask{
+    private int num
+    private String op
+
+    void num(p1){
+        num = p1
+    }
+
+    void op(p1){
+        op = p1
+    }
+
+    @TaskAction
+    void calc(){
+        switch (op){
+            case 'total':
+                int total = 0
+                for(def i in 1..num){
+                    total += i
+                }
+                println("total : ${total}")
+            break;
+
+            case 'count':
+                for(def i in 1..num){
+                    println("no. ${i}")
+                }
+            break;
+
+            default:
+                println("op not found exception.")
+        }
+    }
+}
+
+task total(type:Calc){
+    group 'jun'
+    description 'Task for calculating total.'
+    num 100
+    op 'total'
+}
+
+task count(type:Calc){
+    group 'jun'
+    description 'Task for counting num.'
+    num 10
+    op 'count'
+}
+
+/**
+ * 백업 파일 생성 예제
+ */
+task copyJava(type: Copy){
+    group 'demo'
+    description 'backup java files'
+    from 'src/main/java'
+    into '../java_backup'
+}
+
+/**
+ * ?.times를 통해 반복적으로 task를 생성하는 예제
+ */
+4.times {counter ->
+    task "task$counter"{
+        doLast{
+            println "I'm task number$counter"
+        }
+    }
+}
+
+
