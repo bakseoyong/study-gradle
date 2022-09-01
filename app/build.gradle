@@ -36,9 +36,13 @@ buildscript {
     }
 }
 
+/**
+ * configuration에 접근할 수 있도록 build script에 plugin을 선언해야 한다.
+ */
 plugins {
     id 'study.gradle.java-application-conventions'
     id 'java-library'
+//    pmd
 }
 
 java {
@@ -52,6 +56,7 @@ version = '1.2.1'
 dependencies {
     implementation 'org.apache.commons:commons-text'
     implementation project(':utilities')
+//    pmd group: 'pmd', name: 'pmd', version: '4.2.5'
 }
 
 application {
@@ -98,6 +103,24 @@ class extendedTask extends DefaultTask{
     @TaskAction //테스크로 실행되었을 때 이 메소드가 호출된다.
     void test2(){
         println("test2 called.")
+    }
+}
+
+/**
+ * 생성한 작업을 defaultTasks에 직접 등록하면, gradle -q로 테스크를 지정하지 않은 경우
+ * 등록해 둔 작업이 순서대로 실행된다.
+ */
+defaultTasks 'defaultTask1', 'defaultTask2'
+
+task defaultTask1 {
+    doLast{
+        println "default Task1 called!"
+    }
+}
+
+task defaultTask2{
+    doLast{
+        println "default Task2 called!"
     }
 }
 
@@ -171,4 +194,104 @@ task copyJava(type: Copy){
     }
 }
 
+//DSL 표기법
+task dsltest{
+    ext.testProperty = "I'm test property"
 
+    doLast{
+        println "dsltest 에서 호출됨."
+    }
+}
+
+dsltest.doFirst{
+    println "called at doFirst task: '$dsltest.name' task"
+}
+
+dsltest.configure{
+    println "confifure에서 호출됨"
+}
+
+task extTest{
+    println "extTest에서 호출됨. ext testProperty is : " + dsltest.testProperty
+}
+
+//ant Task 사용
+task loadFile{
+    doLast{
+        def files = file('./antLoadfileResources').lastFiles().sort()
+        files.each { File file ->
+            if(file.isFile()){
+                ant.loadfile(srcFile: file, property: file.name)
+                println "***$file.name***"
+                println "${ant.properties[file.name]}"
+            }
+        }
+    }
+}
+
+task helloAnt{
+    String greeting = 'hello from ant'
+    ant.echo(message: greeting)
+}
+//
+//tasks.register(antList){
+//    def path = ant.path{
+//        fileset(dir: 'src', includes: '**/*.xml')
+//    }
+//
+//    path.list().each{
+//        println it
+//    }
+//}
+
+//Using a custom ant task
+tasks.register('check1'){
+    doLast{
+        ant.taskdef(resource: 'checkstyletask.properties'){
+            classpath{
+                fileset(dir: 'libs', includes: '*.jar')
+            }
+        }
+        ant.checkstyle(config: 'checkstyle.xml'){
+            fileset(dir: 'src')
+        }
+    }
+}
+
+/**
+ * gradle.taskGraph.whenReady라는 함수를 통해 작업이 release인지 distribution인지에 따라
+ * 변수값을 변경할 수 있다.
+ */
+task distribution{
+    doLast{
+        println "build the zip version = $version"
+    }
+}
+
+task release{
+    dependsOn 'distribution'
+    doLast{
+        println "release now"
+    }
+}
+
+gradle.taskGraph.whenReady {taskGraph ->
+    println "taskGraph allTasks : " + taskGraph.allTasks
+    //not taskGraph.hasTask(":release"))
+    if(taskGraph.hasTask(":app:release")){
+        version='1.0'
+    }else{
+        version='1.0-SNAPSHOT'
+    }
+}
+
+sourceSets{
+    main{
+        java{
+            srcDir 'src/main/java2'
+            //특정 폴더나 파일을 빌드에서 제외하고 싶으면 exclude키워드를 사용하면 된다.
+            exclude '**/consump/**'
+            exclude '**'
+        }
+    }
+}
